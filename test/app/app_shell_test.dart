@@ -1,31 +1,15 @@
-import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:event_reminder/app/app.dart';
-import 'package:event_reminder/data/local/app_database.dart';
-import 'package:event_reminder/data/providers.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:event_reminder/app/routes.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/test_app.dart';
 
 void main() {
   testWidgets('five-tab shell navigates and categories load from the DB', (
     tester,
   ) async {
-    final db = AppDatabase(
-      DatabaseConnection(
-        NativeDatabase.memory(),
-        closeStreamsSynchronously: true,
-      ),
-    );
+    final db = inMemoryDatabase();
     addTearDown(db.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [appDatabaseProvider.overrideWithValue(db)],
-        child: const PlanlyApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpPlanly(tester, db: db, initialLocation: Routes.home);
 
     for (final label in [
       'Home',
@@ -36,20 +20,19 @@ void main() {
     ]) {
       expect(find.text(label), findsWidgets);
     }
+    expect(find.text('Your day is clear'), findsOneWidget);
+    expect(find.text('Connect Google Calendar'), findsOneWidget);
 
     await tester.tap(find.text('Reminders'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Nothing to remind you about yet.'), findsOneWidget);
 
     await tester.tap(find.text('Events'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Browse categories'));
-    // Drift queries complete on a real async boundary.
-    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-    await tester.pumpAndSettle();
+    await settle(tester);
 
     expect(find.text('Event Categories'), findsOneWidget);
     expect(find.text('Meetings'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
   });
 }

@@ -2,11 +2,17 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
 import 'default_categories.dart';
+import 'tables/app_settings.dart';
+import 'tables/calendars.dart';
 import 'tables/categories.dart';
+import 'tables/events.dart';
+import 'tables/linked_accounts.dart';
 
 part 'app_database.g.dart';
 
-@DriftDatabase(tables: [Categories])
+@DriftDatabase(
+  tables: [Categories, AppSettings, LinkedAccounts, Calendars, Events],
+)
 class AppDatabase extends _$AppDatabase {
   /// Pass an [executor] in tests (e.g. `NativeDatabase.memory()`).
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openDefault());
@@ -14,13 +20,21 @@ class AppDatabase extends _$AppDatabase {
   static QueryExecutor _openDefault() => driftDatabase(name: 'planly');
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async {
       await m.createAll();
       await _seedDefaultCategories();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(appSettings);
+        await m.createTable(linkedAccounts);
+        await m.createTable(calendars);
+        await m.createTable(events);
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

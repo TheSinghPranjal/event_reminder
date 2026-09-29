@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/local/app_database.dart';
 import '../providers/categories_providers.dart';
+import '../../../core/widgets/soft_card.dart';
 import 'category_badge.dart';
 import 'create_category_sheet.dart';
 
@@ -53,34 +54,31 @@ class _CategoryTile extends StatelessWidget {
     final color = Color(category.color);
 
     // Tapping will open the category's filtered event list once events exist.
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            CategoryBadge(iconKey: category.iconKey, color: color),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    return SoftCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          CategoryBadge(iconKey: category.iconKey, color: color),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                category.name,
+                style: theme.textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (!category.isBuiltIn)
                 Text(
-                  category.name,
-                  style: theme.textTheme.titleMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (!category.isBuiltIn)
-                  Text(
-                    'Custom',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  'Custom',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-              ],
-            ),
-          ],
-        ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

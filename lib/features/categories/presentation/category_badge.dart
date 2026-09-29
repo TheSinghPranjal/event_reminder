@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/soft_card.dart';
 import '../category_icons.dart';
 
 /// Rounded tinted square showing a category's icon in its color.
@@ -16,16 +17,6 @@ class CategoryBadge extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.22 : 0.12),
-        borderRadius: BorderRadius.circular(size * 0.32),
-      ),
-      child: Icon(categoryIcon(iconKey), color: color, size: size * 0.5),
-    );
-  }
+  Widget build(BuildContext context) =>
+      IconBadge(icon: categoryIcon(iconKey), color: color, size: size);
 }
