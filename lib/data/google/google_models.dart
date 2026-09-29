@@ -59,6 +59,8 @@ class GoogleEventInfo {
     this.description,
     this.location,
     this.reminderMinutes,
+    this.etag,
+    this.isCancelled = false,
   });
 
   final String id;
@@ -74,6 +76,46 @@ class GoogleEventInfo {
 
   /// Minutes before [start] of the earliest popup reminder, if any.
   final int? reminderMinutes;
+
+  /// Google etag for optimistic concurrency.
+  final String? etag;
+
+  /// True when Google reported this event as cancelled/deleted.
+  final bool isCancelled;
+}
+
+/// Fields needed to create or update a Google Calendar event.
+class GoogleEventDraft {
+  const GoogleEventDraft({
+    required this.title,
+    required this.start,
+    required this.end,
+    this.isAllDay = false,
+    this.description,
+    this.location,
+    this.reminderMinutes,
+  });
+
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final bool isAllDay;
+  final String? description;
+  final String? location;
+  final int? reminderMinutes;
+}
+
+/// One page (or full window) of events from Google, plus sync token.
+class GoogleEventPage {
+  const GoogleEventPage({
+    this.events = const [],
+    this.cancelledIds = const [],
+    this.nextSyncToken,
+  });
+
+  final List<GoogleEventInfo> events;
+  final List<String> cancelledIds;
+  final String? nextSyncToken;
 }
 
 /// A Google API call failed. [message] is safe to show to the user.
@@ -87,4 +129,12 @@ class GoogleApiException implements Exception {
 
   @override
   String toString() => 'GoogleApiException: $message';
+}
+
+/// The calendar's incremental [syncToken] is no longer valid (HTTP 410).
+class GoogleSyncTokenExpiredException implements Exception {
+  const GoogleSyncTokenExpiredException();
+
+  @override
+  String toString() => 'GoogleSyncTokenExpiredException';
 }

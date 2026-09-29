@@ -16,10 +16,12 @@ abstract final class GoogleConfig {
     'GOOGLE_SERVER_CLIENT_ID',
   );
 
-  /// Read-only access to the user's calendars and events.
+  /// List calendars (readonly) and create/update/delete events.
   static const calendarScopes = [
     'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events',
   ];
+
 
   static bool get isConfigured {
     if (kIsWeb) return false;

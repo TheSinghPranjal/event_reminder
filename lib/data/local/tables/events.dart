@@ -3,6 +3,23 @@ import 'package:drift/drift.dart';
 import 'calendars.dart';
 import 'categories.dart';
 
+/// Sync lifecycle for a local event row.
+///
+/// - `local` — never destined for Google
+/// - `synced` — matches Google (or just imported)
+/// - `pendingCreate` / `pendingUpdate` / `pendingDelete` — awaiting push
+/// - `failed` — last push attempt failed ([Events.syncError] has the message)
+abstract final class EventSyncStatus {
+  static const local = 'local';
+  static const synced = 'synced';
+  static const pendingCreate = 'pendingCreate';
+  static const pendingUpdate = 'pendingUpdate';
+  static const pendingDelete = 'pendingDelete';
+  static const failed = 'failed';
+
+  static const pending = {pendingCreate, pendingUpdate, pendingDelete, failed};
+}
+
 /// Calendar events, both imported from Google and created locally.
 @DataClassName('CalendarEvent')
 class Events extends Table {
@@ -44,6 +61,16 @@ class Events extends Table {
     #id,
     onDelete: KeyAction.setNull,
   )();
+
+  /// See [EventSyncStatus]. Defaults to synced (imported Google events).
+  TextColumn get syncStatus =>
+      text().withDefault(const Constant(EventSyncStatus.synced))();
+
+  /// Google etag for optimistic concurrency on PATCH.
+  TextColumn get etag => text().nullable()();
+
+  /// Last push failure message, if [syncStatus] is [EventSyncStatus.failed].
+  TextColumn get syncError => text().nullable()();
 
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
