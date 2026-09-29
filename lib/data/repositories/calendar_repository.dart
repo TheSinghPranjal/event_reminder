@@ -61,6 +61,12 @@ class CalendarRepository {
     });
   }
 
+  Future<SyncedCalendar?> find(int id) {
+    return (_db.select(
+      _db.calendars,
+    )..where((c) => c.id.equals(id))).getSingleOrNull();
+  }
+
   Future<List<SyncedCalendar>> selected(String accountId) {
     return (_db.select(_db.calendars)
           ..where((c) => c.accountId.equals(accountId) & c.isSelected)
@@ -70,4 +76,23 @@ class CalendarRepository {
           ]))
         .get();
   }
+
+  /// Selected calendars the user can write to (owner or writer).
+  Future<List<SyncedCalendar>> writableFor(String accountId) async {
+    final all = await selected(accountId);
+    return [
+      for (final c in all)
+        if (c.accessRole == 'owner' || c.accessRole == 'writer') c,
+    ];
+  }
+
+  Future<void> setSyncToken(int calendarId, String? token) {
+    return (_db.update(
+      _db.calendars,
+    )..where((c) => c.id.equals(calendarId))).write(
+      CalendarsCompanion(syncToken: Value(token)),
+    );
+  }
+
+  Future<void> clearSyncToken(int calendarId) => setSyncToken(calendarId, null);
 }

@@ -7,23 +7,41 @@ import '../data/repositories/account_repository.dart';
 import '../data/repositories/calendar_repository.dart';
 import '../data/repositories/category_repository.dart';
 import '../data/repositories/event_repository.dart';
+import 'event_push_service.dart';
 
-enum SyncStage { connect, loadCalendars, importEvents, findBirthdays }
+enum SyncStage {
+  connect,
+  pushChanges,
+  loadCalendars,
+  importEvents,
+  findBirthdays,
+}
 
 /// Real counts produced by a sync run (partial when the run failed).
 class SyncReport {
-  const SyncReport({this.calendars = 0, this.events = 0, this.birthdays = 0});
+  const SyncReport({
+    this.calendars = 0,
+    this.events = 0,
+    this.birthdays = 0,
+    this.pushed = 0,
+  });
 
   final int calendars;
   final int events;
   final int birthdays;
+  final int pushed;
 
-  SyncReport copyWith({int? calendars, int? events, int? birthdays}) =>
-      SyncReport(
-        calendars: calendars ?? this.calendars,
-        events: events ?? this.events,
-        birthdays: birthdays ?? this.birthdays,
-      );
+  SyncReport copyWith({
+    int? calendars,
+    int? events,
+    int? birthdays,
+    int? pushed,
+  }) => SyncReport(
+    calendars: calendars ?? this.calendars,
+    events: events ?? this.events,
+    birthdays: birthdays ?? this.birthdays,
+    pushed: pushed ?? this.pushed,
+  );
 }
 
 sealed class SyncUpdate {
@@ -78,12 +96,14 @@ class CalendarSyncService {
     required CalendarRepository calendars,
     required EventRepository events,
     required CategoryRepository categories,
+    required EventPushService push,
     DateTime Function() clock = DateTime.now,
   }) : _api = api,
        _accounts = accounts,
        _calendars = calendars,
        _events = events,
        _categories = categories,
+       _push = push,
        _clock = clock;
 
   final GoogleCalendarApi _api;
@@ -91,6 +111,7 @@ class CalendarSyncService {
   final CalendarRepository _calendars;
   final EventRepository _events;
   final CategoryRepository _categories;
+  final EventPushService _push;
   final DateTime Function() _clock;
 
   Stream<SyncUpdate> run(String accountId) async* {
@@ -123,6 +144,17 @@ class CalendarSyncService {
         account.isStub ? 'Connected (stub account)' : 'Connected to Google',
       );
 
+      stage = SyncStage.pushChanges;
+      yield SyncStageStarted(stage);
+      final pushed = await _push.pushPending(accountId);
+      report = report.copyWith(pushed: pushed);
+      yield SyncStageCompleted(
+        stage,
+        pushed == 0
+            ? 'No local changes to upload'
+            : 'Uploaded ${_plural(pushed, 'change')}',
+      );
+
       stage = SyncStage.loadCalendars;
       yield SyncStageStarted(stage);
       await _calendars.refreshMetadata(
@@ -143,11 +175,24 @@ class CalendarSyncService {
       stage = SyncStage.importEvents;
       yield SyncStageStarted(stage);
       for (final calendar in selected) {
-        final remote = await _api.listEvents(
-          accountId,
-          calendar.googleCalendarId,
-        );
-        final written = await _events.upsertGoogleEvents(calendar.id, remote);
+        GoogleEventPage page;
+        try {
+          page = await _api.listEvents(
+            accountId,
+            calendar.googleCalendarId,
+            syncToken: calendar.syncToken,
+          );
+        } on GoogleSyncTokenExpiredException {
+          await _calendars.clearSyncToken(calendar.id);
+          page = await _api.listEvents(
+            accountId,
+            calendar.googleCalendarId,
+          );
+        }
+        final written = await _events.applyRemoteDelta(calendar.id, page);
+        if (page.nextSyncToken != null) {
+          await _calendars.setSyncToken(calendar.id, page.nextSyncToken);
+        }
         report = report.copyWith(events: report.events + written);
         yield SyncStageProgress(
           stage,
@@ -192,5 +237,6 @@ final calendarSyncServiceProvider = Provider<CalendarSyncService>(
     calendars: ref.watch(calendarRepositoryProvider),
     events: ref.watch(eventRepositoryProvider),
     categories: ref.watch(categoryRepositoryProvider),
+    push: ref.watch(eventPushServiceProvider),
   ),
 );
