@@ -2164,6 +2164,38 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
       'REFERENCES categories (id) ON DELETE SET NULL',
     ),
   );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<String> syncStatus = GeneratedColumn<String>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(EventSyncStatus.synced),
+  );
+  static const VerificationMeta _etagMeta = const VerificationMeta('etag');
+  @override
+  late final GeneratedColumn<String> etag = GeneratedColumn<String>(
+    'etag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _syncErrorMeta = const VerificationMeta(
+    'syncError',
+  );
+  @override
+  late final GeneratedColumn<String> syncError = GeneratedColumn<String>(
+    'sync_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -2203,6 +2235,9 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
     reminderMinutes,
     reminderNotifiedAt,
     categoryId,
+    syncStatus,
+    etag,
+    syncError,
     createdAt,
     updatedAt,
   ];
@@ -2311,6 +2346,24 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
         categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
       );
     }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
+    if (data.containsKey('etag')) {
+      context.handle(
+        _etagMeta,
+        etag.isAcceptableOrUnknown(data['etag']!, _etagMeta),
+      );
+    }
+    if (data.containsKey('sync_error')) {
+      context.handle(
+        _syncErrorMeta,
+        syncError.isAcceptableOrUnknown(data['sync_error']!, _syncErrorMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2388,6 +2441,18 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
         DriftSqlType.int,
         data['${effectivePrefix}category_id'],
       ),
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_status'],
+      )!,
+      etag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}etag'],
+      ),
+      syncError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_error'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2433,6 +2498,15 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
   /// When the in-app reminder was shown, so it only fires once.
   final DateTime? reminderNotifiedAt;
   final int? categoryId;
+
+  /// See [EventSyncStatus]. Defaults to synced (imported Google events).
+  final String syncStatus;
+
+  /// Google etag for optimistic concurrency on PATCH.
+  final String? etag;
+
+  /// Last push failure message, if [syncStatus] is [EventSyncStatus.failed].
+  final String? syncError;
   final DateTime createdAt;
   final DateTime updatedAt;
   const CalendarEvent({
@@ -2449,6 +2523,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     this.reminderMinutes,
     this.reminderNotifiedAt,
     this.categoryId,
+    required this.syncStatus,
+    this.etag,
+    this.syncError,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -2481,6 +2558,13 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     }
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<int>(categoryId);
+    }
+    map['sync_status'] = Variable<String>(syncStatus);
+    if (!nullToAbsent || etag != null) {
+      map['etag'] = Variable<String>(etag);
+    }
+    if (!nullToAbsent || syncError != null) {
+      map['sync_error'] = Variable<String>(syncError);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -2516,6 +2600,11 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(categoryId),
+      syncStatus: Value(syncStatus),
+      etag: etag == null && nullToAbsent ? const Value.absent() : Value(etag),
+      syncError: syncError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncError),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -2542,6 +2631,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
         json['reminderNotifiedAt'],
       ),
       categoryId: serializer.fromJson<int?>(json['categoryId']),
+      syncStatus: serializer.fromJson<String>(json['syncStatus']),
+      etag: serializer.fromJson<String?>(json['etag']),
+      syncError: serializer.fromJson<String?>(json['syncError']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -2563,6 +2655,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       'reminderMinutes': serializer.toJson<int?>(reminderMinutes),
       'reminderNotifiedAt': serializer.toJson<DateTime?>(reminderNotifiedAt),
       'categoryId': serializer.toJson<int?>(categoryId),
+      'syncStatus': serializer.toJson<String>(syncStatus),
+      'etag': serializer.toJson<String?>(etag),
+      'syncError': serializer.toJson<String?>(syncError),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -2582,6 +2677,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     Value<int?> reminderMinutes = const Value.absent(),
     Value<DateTime?> reminderNotifiedAt = const Value.absent(),
     Value<int?> categoryId = const Value.absent(),
+    String? syncStatus,
+    Value<String?> etag = const Value.absent(),
+    Value<String?> syncError = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => CalendarEvent(
@@ -2604,6 +2702,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
         ? reminderNotifiedAt.value
         : this.reminderNotifiedAt,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    syncStatus: syncStatus ?? this.syncStatus,
+    etag: etag.present ? etag.value : this.etag,
+    syncError: syncError.present ? syncError.value : this.syncError,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -2634,6 +2735,11 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
+      etag: data.etag.present ? data.etag.value : this.etag,
+      syncError: data.syncError.present ? data.syncError.value : this.syncError,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -2655,6 +2761,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
           ..write('reminderMinutes: $reminderMinutes, ')
           ..write('reminderNotifiedAt: $reminderNotifiedAt, ')
           ..write('categoryId: $categoryId, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('etag: $etag, ')
+          ..write('syncError: $syncError, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -2676,6 +2785,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     reminderMinutes,
     reminderNotifiedAt,
     categoryId,
+    syncStatus,
+    etag,
+    syncError,
     createdAt,
     updatedAt,
   );
@@ -2696,6 +2808,9 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
           other.reminderMinutes == this.reminderMinutes &&
           other.reminderNotifiedAt == this.reminderNotifiedAt &&
           other.categoryId == this.categoryId &&
+          other.syncStatus == this.syncStatus &&
+          other.etag == this.etag &&
+          other.syncError == this.syncError &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -2714,6 +2829,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
   final Value<int?> reminderMinutes;
   final Value<DateTime?> reminderNotifiedAt;
   final Value<int?> categoryId;
+  final Value<String> syncStatus;
+  final Value<String?> etag;
+  final Value<String?> syncError;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const EventsCompanion({
@@ -2730,6 +2848,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     this.reminderMinutes = const Value.absent(),
     this.reminderNotifiedAt = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.etag = const Value.absent(),
+    this.syncError = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -2747,6 +2868,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     this.reminderMinutes = const Value.absent(),
     this.reminderNotifiedAt = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.syncStatus = const Value.absent(),
+    this.etag = const Value.absent(),
+    this.syncError = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : title = Value(title),
@@ -2766,6 +2890,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     Expression<int>? reminderMinutes,
     Expression<DateTime>? reminderNotifiedAt,
     Expression<int>? categoryId,
+    Expression<String>? syncStatus,
+    Expression<String>? etag,
+    Expression<String>? syncError,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -2784,6 +2911,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
       if (reminderNotifiedAt != null)
         'reminder_notified_at': reminderNotifiedAt,
       if (categoryId != null) 'category_id': categoryId,
+      if (syncStatus != null) 'sync_status': syncStatus,
+      if (etag != null) 'etag': etag,
+      if (syncError != null) 'sync_error': syncError,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -2803,6 +2933,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     Value<int?>? reminderMinutes,
     Value<DateTime?>? reminderNotifiedAt,
     Value<int?>? categoryId,
+    Value<String>? syncStatus,
+    Value<String?>? etag,
+    Value<String?>? syncError,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
@@ -2820,6 +2953,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
       reminderMinutes: reminderMinutes ?? this.reminderMinutes,
       reminderNotifiedAt: reminderNotifiedAt ?? this.reminderNotifiedAt,
       categoryId: categoryId ?? this.categoryId,
+      syncStatus: syncStatus ?? this.syncStatus,
+      etag: etag ?? this.etag,
+      syncError: syncError ?? this.syncError,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -2869,6 +3005,15 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     if (categoryId.present) {
       map['category_id'] = Variable<int>(categoryId.value);
     }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<String>(syncStatus.value);
+    }
+    if (etag.present) {
+      map['etag'] = Variable<String>(etag.value);
+    }
+    if (syncError.present) {
+      map['sync_error'] = Variable<String>(syncError.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2894,6 +3039,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
           ..write('reminderMinutes: $reminderMinutes, ')
           ..write('reminderNotifiedAt: $reminderNotifiedAt, ')
           ..write('categoryId: $categoryId, ')
+          ..write('syncStatus: $syncStatus, ')
+          ..write('etag: $etag, ')
+          ..write('syncError: $syncError, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -4362,6 +4510,9 @@ typedef $$EventsTableCreateCompanionBuilder =
       Value<int?> reminderMinutes,
       Value<DateTime?> reminderNotifiedAt,
       Value<int?> categoryId,
+      Value<String> syncStatus,
+      Value<String?> etag,
+      Value<String?> syncError,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -4380,6 +4531,9 @@ typedef $$EventsTableUpdateCompanionBuilder =
       Value<int?> reminderMinutes,
       Value<DateTime?> reminderNotifiedAt,
       Value<int?> categoryId,
+      Value<String> syncStatus,
+      Value<String?> etag,
+      Value<String?> syncError,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -4484,6 +4638,21 @@ class $$EventsTableFilterComposer
 
   ColumnFilters<DateTime> get reminderNotifiedAt => $composableBuilder(
     column: $table.reminderNotifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get etag => $composableBuilder(
+    column: $table.etag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncError => $composableBuilder(
+    column: $table.syncError,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4608,6 +4777,21 @@ class $$EventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get etag => $composableBuilder(
+    column: $table.etag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncError => $composableBuilder(
+    column: $table.syncError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4715,6 +4899,17 @@ class $$EventsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get etag =>
+      $composableBuilder(column: $table.etag, builder: (column) => column);
+
+  GeneratedColumn<String> get syncError =>
+      $composableBuilder(column: $table.syncError, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -4809,6 +5004,9 @@ class $$EventsTableTableManager
                 Value<int?> reminderMinutes = const Value.absent(),
                 Value<DateTime?> reminderNotifiedAt = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<String?> etag = const Value.absent(),
+                Value<String?> syncError = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => EventsCompanion(
@@ -4825,6 +5023,9 @@ class $$EventsTableTableManager
                 reminderMinutes: reminderMinutes,
                 reminderNotifiedAt: reminderNotifiedAt,
                 categoryId: categoryId,
+                syncStatus: syncStatus,
+                etag: etag,
+                syncError: syncError,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -4843,6 +5044,9 @@ class $$EventsTableTableManager
                 Value<int?> reminderMinutes = const Value.absent(),
                 Value<DateTime?> reminderNotifiedAt = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
+                Value<String> syncStatus = const Value.absent(),
+                Value<String?> etag = const Value.absent(),
+                Value<String?> syncError = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => EventsCompanion.insert(
@@ -4859,6 +5063,9 @@ class $$EventsTableTableManager
                 reminderMinutes: reminderMinutes,
                 reminderNotifiedAt: reminderNotifiedAt,
                 categoryId: categoryId,
+                syncStatus: syncStatus,
+                etag: etag,
+                syncError: syncError,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),

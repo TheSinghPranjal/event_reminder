@@ -88,4 +88,22 @@ class AccountRepository {
       ),
     );
   }
+
+  /// Removes the account and clears it as active. Cascades drop its calendars
+  /// and events. Caller is responsible for signing out of Google.
+  Future<void> disconnect(String id) {
+    return _db.transaction(() async {
+      final active = await (_db.select(
+        _db.appSettings,
+      )..where((s) => s.key.equals(SettingKeys.activeAccountId))).getSingleOrNull();
+      if (active?.value == id) {
+        await (_db.delete(
+          _db.appSettings,
+        )..where((s) => s.key.equals(SettingKeys.activeAccountId))).go();
+      }
+      await (_db.delete(
+        _db.linkedAccounts,
+      )..where((a) => a.id.equals(id))).go();
+    });
+  }
 }

@@ -20,7 +20,7 @@ class AppDatabase extends _$AppDatabase {
   static QueryExecutor _openDefault() => driftDatabase(name: 'planly');
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -37,6 +37,11 @@ class AppDatabase extends _$AppDatabase {
       } else if (from < 3) {
         await m.addColumn(events, events.reminderMinutes);
         await m.addColumn(events, events.reminderNotifiedAt);
+      }
+      if (from < 4 && from >= 2) {
+        await m.addColumn(events, events.syncStatus);
+        await m.addColumn(events, events.etag);
+        await m.addColumn(events, events.syncError);
       }
     },
     beforeOpen: (details) async {
