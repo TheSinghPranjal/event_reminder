@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'google/google_auth_service.dart';
 import 'google/google_calendar_api.dart';
+import 'google/google_config.dart';
+import 'google/rest_google_calendar_api.dart';
+import 'google/sign_in_google_auth_service.dart';
 import 'google/stub_google_auth_service.dart';
 import 'google/stub_google_calendar_api.dart';
 import 'local/app_database.dart';
@@ -38,12 +41,21 @@ final eventRepositoryProvider = Provider<EventRepository>(
   (ref) => EventRepository(ref.watch(appDatabaseProvider)),
 );
 
-/// Google Sign-In. Currently the developer stub (see phase 7 of the plan).
-final googleAuthServiceProvider = Provider<GoogleAuthService>(
-  (ref) => const StubGoogleAuthService(),
+final _signInServiceProvider = Provider<SignInGoogleAuthService>(
+  (ref) => SignInGoogleAuthService(),
 );
 
-/// Google Calendar API. Currently the developer stub.
+/// Google Sign-In, or the developer stub when OAuth client IDs weren't
+/// provided at build time (see [GoogleConfig]).
+final googleAuthServiceProvider = Provider<GoogleAuthService>(
+  (ref) => GoogleConfig.isConfigured
+      ? ref.watch(_signInServiceProvider)
+      : const StubGoogleAuthService(),
+);
+
+/// Google Calendar API, or the developer stub (see [googleAuthServiceProvider]).
 final googleCalendarApiProvider = Provider<GoogleCalendarApi>(
-  (ref) => const StubGoogleCalendarApi(),
+  (ref) => GoogleConfig.isConfigured
+      ? RestGoogleCalendarApi(ref.watch(_signInServiceProvider))
+      : const StubGoogleCalendarApi(),
 );

@@ -20,7 +20,7 @@ class AppDatabase extends _$AppDatabase {
   static QueryExecutor _openDefault() => driftDatabase(name: 'planly');
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -34,6 +34,9 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(linkedAccounts);
         await m.createTable(calendars);
         await m.createTable(events);
+      } else if (from < 3) {
+        await m.addColumn(events, events.reminderMinutes);
+        await m.addColumn(events, events.reminderNotifiedAt);
       }
     },
     beforeOpen: (details) async {

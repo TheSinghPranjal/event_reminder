@@ -33,6 +33,12 @@ class Events extends Table {
   /// are recognized from this, not from the calendar's name.
   TextColumn get eventType => text().withDefault(const Constant('default'))();
 
+  /// Remind this many minutes before [startsAt]; null for no reminder.
+  IntColumn get reminderMinutes => integer().nullable()();
+
+  /// When the in-app reminder was shown, so it only fires once.
+  DateTimeColumn get reminderNotifiedAt => dateTime().nullable()();
+
   IntColumn get categoryId => integer().nullable().references(
     Categories,
     #id,

@@ -58,6 +58,7 @@ class GoogleEventInfo {
     this.eventType = 'default',
     this.description,
     this.location,
+    this.reminderMinutes,
   });
 
   final String id;
@@ -70,6 +71,9 @@ class GoogleEventInfo {
   final String eventType;
   final String? description;
   final String? location;
+
+  /// Minutes before [start] of the earliest popup reminder, if any.
+  final int? reminderMinutes;
 }
 
 /// A Google API call failed. [message] is safe to show to the user.

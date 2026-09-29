@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/widgets/reminder_banner.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
@@ -16,6 +17,8 @@ class PlanlyApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) =>
+          ReminderBannerHost(child: child ?? const SizedBox.shrink()),
     );
   }
 }

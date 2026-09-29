@@ -2128,6 +2128,28 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
     requiredDuringInsert: false,
     defaultValue: const Constant('default'),
   );
+  static const VerificationMeta _reminderMinutesMeta = const VerificationMeta(
+    'reminderMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> reminderMinutes = GeneratedColumn<int>(
+    'reminder_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderNotifiedAtMeta =
+      const VerificationMeta('reminderNotifiedAt');
+  @override
+  late final GeneratedColumn<DateTime> reminderNotifiedAt =
+      GeneratedColumn<DateTime>(
+        'reminder_notified_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _categoryIdMeta = const VerificationMeta(
     'categoryId',
   );
@@ -2178,6 +2200,8 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
     endsAt,
     isAllDay,
     eventType,
+    reminderMinutes,
+    reminderNotifiedAt,
     categoryId,
     createdAt,
     updatedAt,
@@ -2263,6 +2287,24 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
         eventType.isAcceptableOrUnknown(data['event_type']!, _eventTypeMeta),
       );
     }
+    if (data.containsKey('reminder_minutes')) {
+      context.handle(
+        _reminderMinutesMeta,
+        reminderMinutes.isAcceptableOrUnknown(
+          data['reminder_minutes']!,
+          _reminderMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_notified_at')) {
+      context.handle(
+        _reminderNotifiedAtMeta,
+        reminderNotifiedAt.isAcceptableOrUnknown(
+          data['reminder_notified_at']!,
+          _reminderNotifiedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('category_id')) {
       context.handle(
         _categoryIdMeta,
@@ -2334,6 +2376,14 @@ class $EventsTable extends Events with TableInfo<$EventsTable, CalendarEvent> {
         DriftSqlType.string,
         data['${effectivePrefix}event_type'],
       )!,
+      reminderMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_minutes'],
+      ),
+      reminderNotifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}reminder_notified_at'],
+      ),
       categoryId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}category_id'],
@@ -2376,6 +2426,12 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
   /// Google's event type (`default`, `birthday`, `focusTime`, ...). Birthdays
   /// are recognized from this, not from the calendar's name.
   final String eventType;
+
+  /// Remind this many minutes before [startsAt]; null for no reminder.
+  final int? reminderMinutes;
+
+  /// When the in-app reminder was shown, so it only fires once.
+  final DateTime? reminderNotifiedAt;
   final int? categoryId;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -2390,6 +2446,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     required this.endsAt,
     required this.isAllDay,
     required this.eventType,
+    this.reminderMinutes,
+    this.reminderNotifiedAt,
     this.categoryId,
     required this.createdAt,
     required this.updatedAt,
@@ -2415,6 +2473,12 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     map['ends_at'] = Variable<DateTime>(endsAt);
     map['is_all_day'] = Variable<bool>(isAllDay);
     map['event_type'] = Variable<String>(eventType);
+    if (!nullToAbsent || reminderMinutes != null) {
+      map['reminder_minutes'] = Variable<int>(reminderMinutes);
+    }
+    if (!nullToAbsent || reminderNotifiedAt != null) {
+      map['reminder_notified_at'] = Variable<DateTime>(reminderNotifiedAt);
+    }
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<int>(categoryId);
     }
@@ -2443,6 +2507,12 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       endsAt: Value(endsAt),
       isAllDay: Value(isAllDay),
       eventType: Value(eventType),
+      reminderMinutes: reminderMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderMinutes),
+      reminderNotifiedAt: reminderNotifiedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderNotifiedAt),
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(categoryId),
@@ -2467,6 +2537,10 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       endsAt: serializer.fromJson<DateTime>(json['endsAt']),
       isAllDay: serializer.fromJson<bool>(json['isAllDay']),
       eventType: serializer.fromJson<String>(json['eventType']),
+      reminderMinutes: serializer.fromJson<int?>(json['reminderMinutes']),
+      reminderNotifiedAt: serializer.fromJson<DateTime?>(
+        json['reminderNotifiedAt'],
+      ),
       categoryId: serializer.fromJson<int?>(json['categoryId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -2486,6 +2560,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       'endsAt': serializer.toJson<DateTime>(endsAt),
       'isAllDay': serializer.toJson<bool>(isAllDay),
       'eventType': serializer.toJson<String>(eventType),
+      'reminderMinutes': serializer.toJson<int?>(reminderMinutes),
+      'reminderNotifiedAt': serializer.toJson<DateTime?>(reminderNotifiedAt),
       'categoryId': serializer.toJson<int?>(categoryId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -2503,6 +2579,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     DateTime? endsAt,
     bool? isAllDay,
     String? eventType,
+    Value<int?> reminderMinutes = const Value.absent(),
+    Value<DateTime?> reminderNotifiedAt = const Value.absent(),
     Value<int?> categoryId = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -2519,6 +2597,12 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     endsAt: endsAt ?? this.endsAt,
     isAllDay: isAllDay ?? this.isAllDay,
     eventType: eventType ?? this.eventType,
+    reminderMinutes: reminderMinutes.present
+        ? reminderMinutes.value
+        : this.reminderMinutes,
+    reminderNotifiedAt: reminderNotifiedAt.present
+        ? reminderNotifiedAt.value
+        : this.reminderNotifiedAt,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -2541,6 +2625,12 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
       endsAt: data.endsAt.present ? data.endsAt.value : this.endsAt,
       isAllDay: data.isAllDay.present ? data.isAllDay.value : this.isAllDay,
       eventType: data.eventType.present ? data.eventType.value : this.eventType,
+      reminderMinutes: data.reminderMinutes.present
+          ? data.reminderMinutes.value
+          : this.reminderMinutes,
+      reminderNotifiedAt: data.reminderNotifiedAt.present
+          ? data.reminderNotifiedAt.value
+          : this.reminderNotifiedAt,
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
@@ -2562,6 +2652,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
           ..write('endsAt: $endsAt, ')
           ..write('isAllDay: $isAllDay, ')
           ..write('eventType: $eventType, ')
+          ..write('reminderMinutes: $reminderMinutes, ')
+          ..write('reminderNotifiedAt: $reminderNotifiedAt, ')
           ..write('categoryId: $categoryId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -2581,6 +2673,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
     endsAt,
     isAllDay,
     eventType,
+    reminderMinutes,
+    reminderNotifiedAt,
     categoryId,
     createdAt,
     updatedAt,
@@ -2599,6 +2693,8 @@ class CalendarEvent extends DataClass implements Insertable<CalendarEvent> {
           other.endsAt == this.endsAt &&
           other.isAllDay == this.isAllDay &&
           other.eventType == this.eventType &&
+          other.reminderMinutes == this.reminderMinutes &&
+          other.reminderNotifiedAt == this.reminderNotifiedAt &&
           other.categoryId == this.categoryId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -2615,6 +2711,8 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
   final Value<DateTime> endsAt;
   final Value<bool> isAllDay;
   final Value<String> eventType;
+  final Value<int?> reminderMinutes;
+  final Value<DateTime?> reminderNotifiedAt;
   final Value<int?> categoryId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -2629,6 +2727,8 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     this.endsAt = const Value.absent(),
     this.isAllDay = const Value.absent(),
     this.eventType = const Value.absent(),
+    this.reminderMinutes = const Value.absent(),
+    this.reminderNotifiedAt = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2644,6 +2744,8 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     required DateTime endsAt,
     this.isAllDay = const Value.absent(),
     this.eventType = const Value.absent(),
+    this.reminderMinutes = const Value.absent(),
+    this.reminderNotifiedAt = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2661,6 +2763,8 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     Expression<DateTime>? endsAt,
     Expression<bool>? isAllDay,
     Expression<String>? eventType,
+    Expression<int>? reminderMinutes,
+    Expression<DateTime>? reminderNotifiedAt,
     Expression<int>? categoryId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -2676,6 +2780,9 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
       if (endsAt != null) 'ends_at': endsAt,
       if (isAllDay != null) 'is_all_day': isAllDay,
       if (eventType != null) 'event_type': eventType,
+      if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
+      if (reminderNotifiedAt != null)
+        'reminder_notified_at': reminderNotifiedAt,
       if (categoryId != null) 'category_id': categoryId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -2693,6 +2800,8 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     Value<DateTime>? endsAt,
     Value<bool>? isAllDay,
     Value<String>? eventType,
+    Value<int?>? reminderMinutes,
+    Value<DateTime?>? reminderNotifiedAt,
     Value<int?>? categoryId,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -2708,6 +2817,8 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
       endsAt: endsAt ?? this.endsAt,
       isAllDay: isAllDay ?? this.isAllDay,
       eventType: eventType ?? this.eventType,
+      reminderMinutes: reminderMinutes ?? this.reminderMinutes,
+      reminderNotifiedAt: reminderNotifiedAt ?? this.reminderNotifiedAt,
       categoryId: categoryId ?? this.categoryId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -2747,6 +2858,14 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
     if (eventType.present) {
       map['event_type'] = Variable<String>(eventType.value);
     }
+    if (reminderMinutes.present) {
+      map['reminder_minutes'] = Variable<int>(reminderMinutes.value);
+    }
+    if (reminderNotifiedAt.present) {
+      map['reminder_notified_at'] = Variable<DateTime>(
+        reminderNotifiedAt.value,
+      );
+    }
     if (categoryId.present) {
       map['category_id'] = Variable<int>(categoryId.value);
     }
@@ -2772,6 +2891,8 @@ class EventsCompanion extends UpdateCompanion<CalendarEvent> {
           ..write('endsAt: $endsAt, ')
           ..write('isAllDay: $isAllDay, ')
           ..write('eventType: $eventType, ')
+          ..write('reminderMinutes: $reminderMinutes, ')
+          ..write('reminderNotifiedAt: $reminderNotifiedAt, ')
           ..write('categoryId: $categoryId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -4238,6 +4359,8 @@ typedef $$EventsTableCreateCompanionBuilder =
       required DateTime endsAt,
       Value<bool> isAllDay,
       Value<String> eventType,
+      Value<int?> reminderMinutes,
+      Value<DateTime?> reminderNotifiedAt,
       Value<int?> categoryId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -4254,6 +4377,8 @@ typedef $$EventsTableUpdateCompanionBuilder =
       Value<DateTime> endsAt,
       Value<bool> isAllDay,
       Value<String> eventType,
+      Value<int?> reminderMinutes,
+      Value<DateTime?> reminderNotifiedAt,
       Value<int?> categoryId,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -4349,6 +4474,16 @@ class $$EventsTableFilterComposer
 
   ColumnFilters<String> get eventType => $composableBuilder(
     column: $table.eventType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get reminderNotifiedAt => $composableBuilder(
+    column: $table.reminderNotifiedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4463,6 +4598,16 @@ class $$EventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get reminderNotifiedAt => $composableBuilder(
+    column: $table.reminderNotifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4560,6 +4705,16 @@ class $$EventsTableAnnotationComposer
   GeneratedColumn<String> get eventType =>
       $composableBuilder(column: $table.eventType, builder: (column) => column);
 
+  GeneratedColumn<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get reminderNotifiedAt => $composableBuilder(
+    column: $table.reminderNotifiedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -4651,6 +4806,8 @@ class $$EventsTableTableManager
                 Value<DateTime> endsAt = const Value.absent(),
                 Value<bool> isAllDay = const Value.absent(),
                 Value<String> eventType = const Value.absent(),
+                Value<int?> reminderMinutes = const Value.absent(),
+                Value<DateTime?> reminderNotifiedAt = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -4665,6 +4822,8 @@ class $$EventsTableTableManager
                 endsAt: endsAt,
                 isAllDay: isAllDay,
                 eventType: eventType,
+                reminderMinutes: reminderMinutes,
+                reminderNotifiedAt: reminderNotifiedAt,
                 categoryId: categoryId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -4681,6 +4840,8 @@ class $$EventsTableTableManager
                 required DateTime endsAt,
                 Value<bool> isAllDay = const Value.absent(),
                 Value<String> eventType = const Value.absent(),
+                Value<int?> reminderMinutes = const Value.absent(),
+                Value<DateTime?> reminderNotifiedAt = const Value.absent(),
                 Value<int?> categoryId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -4695,6 +4856,8 @@ class $$EventsTableTableManager
                 endsAt: endsAt,
                 isAllDay: isAllDay,
                 eventType: eventType,
+                reminderMinutes: reminderMinutes,
+                reminderNotifiedAt: reminderNotifiedAt,
                 categoryId: categoryId,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

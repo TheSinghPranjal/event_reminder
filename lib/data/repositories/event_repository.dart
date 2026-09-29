@@ -40,17 +40,30 @@ class EventRepository {
             endsAt: e.end,
             isAllDay: Value(e.isAllDay),
             eventType: Value(e.eventType),
+            reminderMinutes: Value(e.reminderMinutes),
           ),
           onConflict: DoUpdate(
-            (_) => EventsCompanion(
-              title: Value(e.title),
-              description: Value(e.description),
-              location: Value(e.location),
-              startsAt: Value(e.start),
-              endsAt: Value(e.end),
-              isAllDay: Value(e.isAllDay),
-              eventType: Value(e.eventType),
-              updatedAt: Value(now),
+            ($EventsTable old) => EventsCompanion.custom(
+              title: Variable(e.title),
+              description: Variable(e.description),
+              location: Variable(e.location),
+              startsAt: Variable(e.start),
+              endsAt: Variable(e.end),
+              isAllDay: Variable(e.isAllDay),
+              eventType: Variable(e.eventType),
+              reminderMinutes: Variable(e.reminderMinutes),
+              // Re-arm the reminder only when its fire time moved.
+              reminderNotifiedAt: CaseWhenExpression(
+                cases: [
+                  CaseWhen(
+                    old.startsAt.equals(e.start) &
+                        old.reminderMinutes.equalsNullable(e.reminderMinutes),
+                    then: old.reminderNotifiedAt,
+                  ),
+                ],
+                orElse: const Constant<DateTime>(null),
+              ),
+              updatedAt: Variable(now),
             ),
             target: [_db.events.calendarId, _db.events.googleEventId],
           ),
@@ -58,6 +71,29 @@ class EventRepository {
       }
     });
     return events.length;
+  }
+
+  /// Events with a reminder that hasn't been shown yet and that haven't
+  /// started before [after], soonest start first.
+  Stream<List<CalendarEvent>> watchPendingReminders(DateTime after) {
+    final e = _db.events;
+    final c = _db.calendars;
+    final query =
+        _db.select(e).join([leftOuterJoin(c, c.id.equalsExp(e.calendarId))])
+          ..where(
+            e.reminderMinutes.isNotNull() &
+                e.reminderNotifiedAt.isNull() &
+                e.startsAt.isBiggerThanValue(after) &
+                (e.calendarId.isNull() | (c.isSelected & c.isVisible)),
+          )
+          ..orderBy([OrderingTerm(expression: e.startsAt)]);
+    return query.watch().map((rows) => [for (final r in rows) r.readTable(e)]);
+  }
+
+  Future<void> markReminderNotified(int eventId, DateTime at) {
+    return (_db.update(_db.events)..where((e) => e.id.equals(eventId))).write(
+      EventsCompanion(reminderNotifiedAt: Value(at)),
+    );
   }
 
   Expression<bool> _inAccount($EventsTable e, String accountId) {
