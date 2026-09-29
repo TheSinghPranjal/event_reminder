@@ -15,6 +15,9 @@ abstract final class Routes {
   static const calendar = '/calendar';
   static const events = '/events';
   static const eventCategories = '/events/categories';
+  static const eventNew = '/events/new';
+  static String eventDetails(int id) => '/events/$id';
+  static String eventEdit(int id) => '/events/$id/edit';
   static const reminders = '/reminders';
   static const settings = '/settings';
   static const settingsCategories = '/settings/categories';

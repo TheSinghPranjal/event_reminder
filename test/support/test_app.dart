@@ -18,10 +18,31 @@ AppDatabase inMemoryDatabase() => AppDatabase(
 
 /// Test double for a working Google Calendar API (never used by the app).
 class FakeCalendarApi implements GoogleCalendarApi {
-  FakeCalendarApi({required this.calendars, required this.events});
+  FakeCalendarApi({
+    required this.calendars,
+    Map<String, List<GoogleEventInfo>>? events,
+    this.failNextList = false,
+    this.expireSyncTokenOnce = false,
+  }) : events = {
+         for (final e in (events ?? const {}).entries)
+           e.key: List<GoogleEventInfo>.from(e.value),
+       };
 
   final List<GoogleCalendarInfo> calendars;
   final Map<String, List<GoogleEventInfo>> events;
+  final Map<String, String> syncTokens = {};
+  final List<String> insertedIds = [];
+  final List<String> updatedIds = [];
+  final List<String> deletedIds = [];
+
+  /// When true, the next [listEvents] throws [GoogleSyncTokenExpiredException]
+  /// once, then clears.
+  bool expireSyncTokenOnce;
+
+  /// When true, the next [listEvents] throws a generic API error once.
+  bool failNextList;
+
+  int _seq = 0;
 
   @override
   bool get isStub => false;
@@ -31,10 +52,91 @@ class FakeCalendarApi implements GoogleCalendarApi {
       calendars;
 
   @override
-  Future<List<GoogleEventInfo>> listEvents(
+  Future<GoogleEventPage> listEvents(
+    String accountId,
+    String calendarId, {
+    String? syncToken,
+  }) async {
+    if (failNextList) {
+      failNextList = false;
+      throw const GoogleApiException('Simulated list failure');
+    }
+    if (expireSyncTokenOnce && syncToken != null) {
+      expireSyncTokenOnce = false;
+      throw const GoogleSyncTokenExpiredException();
+    }
+    final list = events[calendarId] ?? const <GoogleEventInfo>[];
+    final token = 'token-${calendarId.hashCode}-${list.length}';
+    syncTokens[calendarId] = token;
+    return GoogleEventPage(
+      events: List.unmodifiable(list),
+      cancelledIds: const [],
+      nextSyncToken: token,
+    );
+  }
+
+  @override
+  Future<GoogleEventInfo> insertEvent(
     String accountId,
     String calendarId,
-  ) async => events[calendarId] ?? const [];
+    GoogleEventDraft draft,
+  ) async {
+    final id = 'fake-${++_seq}';
+    final info = GoogleEventInfo(
+      id: id,
+      title: draft.title,
+      start: draft.start,
+      end: draft.end,
+      isAllDay: draft.isAllDay,
+      description: draft.description,
+      location: draft.location,
+      reminderMinutes: draft.reminderMinutes,
+      etag: 'etag-$id',
+    );
+    events.putIfAbsent(calendarId, () => []).add(info);
+    insertedIds.add(id);
+    return info;
+  }
+
+  @override
+  Future<GoogleEventInfo> updateEvent(
+    String accountId,
+    String calendarId,
+    String eventId,
+    GoogleEventDraft draft, {
+    String? etag,
+  }) async {
+    final list = events.putIfAbsent(calendarId, () => []);
+    final index = list.indexWhere((e) => e.id == eventId);
+    final info = GoogleEventInfo(
+      id: eventId,
+      title: draft.title,
+      start: draft.start,
+      end: draft.end,
+      isAllDay: draft.isAllDay,
+      description: draft.description,
+      location: draft.location,
+      reminderMinutes: draft.reminderMinutes,
+      etag: 'etag-$eventId-updated',
+    );
+    if (index >= 0) {
+      list[index] = info;
+    } else {
+      list.add(info);
+    }
+    updatedIds.add(eventId);
+    return info;
+  }
+
+  @override
+  Future<void> deleteEvent(
+    String accountId,
+    String calendarId,
+    String eventId,
+  ) async {
+    events[calendarId]?.removeWhere((e) => e.id == eventId);
+    deletedIds.add(eventId);
+  }
 }
 
 /// Pumps the whole app on [db] with instant stubs and animations disabled
@@ -70,10 +172,11 @@ Future<void> pumpPlanly(
   await settle(tester);
 }
 
-/// Lets real-async Drift work finish, then settles frames.
+/// Lets real-async Drift work finish, then pumps frames without waiting on
+/// unbounded animations (progress indicators, looping illustrations).
 Future<void> settle(WidgetTester tester) async {
-  for (var i = 0; i < 3; i++) {
+  for (var i = 0; i < 5; i++) {
     await tester.runAsync(() => Future<void>.delayed(Duration.zero));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 50));
   }
 }

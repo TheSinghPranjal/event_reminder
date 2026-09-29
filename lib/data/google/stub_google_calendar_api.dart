@@ -4,8 +4,8 @@ import 'google_models.dart';
 /// DEVELOPER STUB: stands in for the Google Calendar API.
 ///
 /// It lists a fixed, clearly-labelled set of calendars so the selection
-/// screen can be exercised, but it cannot import events: [listEvents] always
-/// fails, so a stub sync can never be reported as successful.
+/// screen can be exercised, but it cannot import or write events: those
+/// methods always fail, so a stub sync can never be reported as successful.
 class StubGoogleCalendarApi implements GoogleCalendarApi {
   const StubGoogleCalendarApi({
     this.latency = const Duration(milliseconds: 600),
@@ -60,16 +60,51 @@ class StubGoogleCalendarApi implements GoogleCalendarApi {
     return calendars;
   }
 
+  Never _unsupported() => throw const GoogleApiException(
+    'Event import isn\'t available yet: this build uses a stub instead of '
+    'the Google Calendar API, so no events were downloaded.',
+    isStubLimitation: true,
+  );
+
   @override
-  Future<List<GoogleEventInfo>> listEvents(
+  Future<GoogleEventPage> listEvents(
+    String accountId,
+    String calendarId, {
+    String? syncToken,
+  }) async {
+    await Future<void>.delayed(latency);
+    _unsupported();
+  }
+
+  @override
+  Future<GoogleEventInfo> insertEvent(
     String accountId,
     String calendarId,
+    GoogleEventDraft draft,
   ) async {
     await Future<void>.delayed(latency);
-    throw const GoogleApiException(
-      'Event import isn\'t available yet: this build uses a stub instead of '
-      'the Google Calendar API, so no events were downloaded.',
-      isStubLimitation: true,
-    );
+    _unsupported();
+  }
+
+  @override
+  Future<GoogleEventInfo> updateEvent(
+    String accountId,
+    String calendarId,
+    String eventId,
+    GoogleEventDraft draft, {
+    String? etag,
+  }) async {
+    await Future<void>.delayed(latency);
+    _unsupported();
+  }
+
+  @override
+  Future<void> deleteEvent(
+    String accountId,
+    String calendarId,
+    String eventId,
+  ) async {
+    await Future<void>.delayed(latency);
+    _unsupported();
   }
 }

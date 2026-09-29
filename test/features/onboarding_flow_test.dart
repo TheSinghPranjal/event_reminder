@@ -2,6 +2,8 @@ import 'package:event_reminder/app/routes.dart';
 import 'package:event_reminder/data/google/google_models.dart';
 import 'package:event_reminder/data/repositories/settings_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:event_reminder/services/reminder_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/test_app.dart';
@@ -129,5 +131,64 @@ void main() {
     expect(find.text('Team Meeting'), findsOneWidget);
     expect(find.text("Rahul's birthday"), findsOneWidget);
     expect(find.textContaining('Synced'), findsOneWidget);
+  });
+
+  testWidgets('synced events are stored locally and raise an in-app reminder', (
+    tester,
+  ) async {
+    final db = inMemoryDatabase();
+    addTearDown(db.close);
+    final start = DateTime.now().add(const Duration(minutes: 5));
+    final api = FakeCalendarApi(
+      calendars: const [
+        GoogleCalendarInfo(
+          id: 'me@example.com',
+          name: 'Personal',
+          color: 0xFF039BE5,
+          accessRole: 'owner',
+          isPrimary: true,
+        ),
+      ],
+      events: {
+        'me@example.com': [
+          GoogleEventInfo(
+            id: 's1',
+            title: 'Standup',
+            start: start,
+            end: start.add(const Duration(minutes: 15)),
+            reminderMinutes: 10,
+          ),
+        ],
+      },
+    );
+    await pumpPlanly(
+      tester,
+      db: db,
+      initialLocation: Routes.connect,
+      calendarApi: api,
+    );
+
+    await tapText(tester, 'Continue with Google');
+    await tapText(tester, 'Allow Calendar Access');
+    await tapText(tester, 'Continue');
+
+    // Saved in the local database with its reminder, marked as shown.
+    final row = await tester.runAsync(() => db.select(db.events).getSingle());
+    expect(row!.title, 'Standup');
+    expect(row.reminderMinutes, 10);
+    expect(row.reminderNotifiedAt, isNotNull);
+
+    // The reminder was due (10 min lead, starts in 5): banner is up.
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp)),
+    );
+    expect(container.read(reminderSchedulerProvider).single.title, 'Standup');
+    expect(find.byKey(const ValueKey('reminder-dismiss')), findsOneWidget);
+    expect(find.textContaining('Starts in'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('reminder-dismiss')));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('reminder-dismiss')), findsNothing);
+    expect(container.read(reminderSchedulerProvider), isEmpty);
   });
 }

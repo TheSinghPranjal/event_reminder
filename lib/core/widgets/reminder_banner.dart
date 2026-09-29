@@ -142,10 +142,17 @@ class _ReminderBanner extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Dismiss',
-                onPressed: onDismiss,
-                icon: const Icon(Icons.close_rounded),
+              // No tooltip: the banner sits above the Navigator, where there
+              // is no Overlay for one to attach to.
+              Semantics(
+                button: true,
+                label: 'Dismiss reminder',
+                excludeSemantics: true,
+                child: IconButton(
+                  key: const ValueKey('reminder-dismiss'),
+                  onPressed: onDismiss,
+                  icon: const Icon(Icons.close_rounded),
+                ),
               ),
             ],
           ),

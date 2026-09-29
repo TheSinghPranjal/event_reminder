@@ -518,6 +518,7 @@ class _TimelineRow extends StatelessWidget {
               child: Opacity(
                 opacity: past ? 0.6 : 1,
                 child: SoftCard(
+                  onTap: () => context.push(Routes.eventDetails(e.id)),
                   child: Row(
                     children: [
                       IconBadge(icon: icon, color: color, size: 44),

@@ -19,7 +19,7 @@ class RestGoogleCalendarApi implements GoogleCalendarApi {
 
   final SignInGoogleAuthService _auth;
 
-  /// Range of events imported around today.
+  /// Range of events imported around today (full sync only).
   final Duration pastWindow;
   final Duration futureWindow;
 
@@ -52,7 +52,10 @@ class RestGoogleCalendarApi implements GoogleCalendarApi {
     );
     try {
       return await body(gcal.CalendarApi(client));
+    } on GoogleSyncTokenExpiredException {
+      rethrow;
     } on gcal.DetailedApiRequestError catch (e) {
+      if (e.status == 410) throw const GoogleSyncTokenExpiredException();
       throw GoogleApiException(switch (e.status) {
         401 || 403 =>
           'Google refused access to your calendars. '
@@ -102,35 +105,147 @@ class RestGoogleCalendarApi implements GoogleCalendarApi {
   }
 
   @override
-  Future<List<GoogleEventInfo>> listEvents(
+  Future<GoogleEventPage> listEvents(
     String accountId,
-    String calendarId,
-  ) {
+    String calendarId, {
+    String? syncToken,
+  }) {
     return _withApi(accountId, (api) async {
       final now = DateTime.now();
-      final result = <GoogleEventInfo>[];
+      final events = <GoogleEventInfo>[];
+      final cancelled = <String>[];
       String? pageToken;
+      String? nextSyncToken;
       do {
-        final page = await api.events.list(
-          calendarId,
-          singleEvents: true,
-          showDeleted: false,
-          maxResults: 2500,
-          timeMin: now.subtract(pastWindow).toUtc(),
-          timeMax: now.add(futureWindow).toUtc(),
-          pageToken: pageToken,
-        );
+        final gcal.Events page;
+        try {
+          page = syncToken != null
+              ? await api.events.list(
+                  calendarId,
+                  singleEvents: true,
+                  showDeleted: true,
+                  syncToken: syncToken,
+                  pageToken: pageToken,
+                  maxResults: 2500,
+                )
+              : await api.events.list(
+                  calendarId,
+                  singleEvents: true,
+                  showDeleted: true,
+                  maxResults: 2500,
+                  timeMin: now.subtract(pastWindow).toUtc(),
+                  timeMax: now.add(futureWindow).toUtc(),
+                  pageToken: pageToken,
+                );
+        } on gcal.DetailedApiRequestError catch (e) {
+          if (e.status == 410) throw const GoogleSyncTokenExpiredException();
+          rethrow;
+        }
         final fallback =
             _defaultReminders[calendarId] ??
             _earliestPopup(page.defaultReminders);
         for (final e in page.items ?? const <gcal.Event>[]) {
+          if (e.status == 'cancelled') {
+            final id = e.id;
+            if (id != null) cancelled.add(id);
+            continue;
+          }
           final info = _toInfo(e, fallback);
-          if (info != null) result.add(info);
+          if (info != null) events.add(info);
         }
         pageToken = page.nextPageToken;
+        nextSyncToken = page.nextSyncToken ?? nextSyncToken;
       } while (pageToken != null);
-      return result;
+      return GoogleEventPage(
+        events: events,
+        cancelledIds: cancelled,
+        nextSyncToken: nextSyncToken,
+      );
     });
+  }
+
+  @override
+  Future<GoogleEventInfo> insertEvent(
+    String accountId,
+    String calendarId,
+    GoogleEventDraft draft,
+  ) {
+    return _withApi(accountId, (api) async {
+      final created = await api.events.insert(_toGcal(draft), calendarId);
+      final info = _toInfo(created, draft.reminderMinutes);
+      if (info == null) {
+        throw const GoogleApiException(
+          'Google created the event but returned an incomplete response.',
+        );
+      }
+      return info;
+    });
+  }
+
+  @override
+  Future<GoogleEventInfo> updateEvent(
+    String accountId,
+    String calendarId,
+    String eventId,
+    GoogleEventDraft draft, {
+    String? etag,
+  }) {
+    return _withApi(accountId, (api) async {
+      final request = _toGcal(draft)
+        ..id = eventId
+        ..etag = etag;
+      final updated = await api.events.patch(request, calendarId, eventId);
+      final info = _toInfo(updated, draft.reminderMinutes);
+      if (info == null) {
+        throw const GoogleApiException(
+          'Google updated the event but returned an incomplete response.',
+        );
+      }
+      return info;
+    });
+  }
+
+  @override
+  Future<void> deleteEvent(
+    String accountId,
+    String calendarId,
+    String eventId,
+  ) {
+    return _withApi(accountId, (api) async {
+      try {
+        await api.events.delete(calendarId, eventId);
+      } on gcal.DetailedApiRequestError catch (e) {
+        if (e.status == 404 || e.status == 410) return;
+        rethrow;
+      }
+    });
+  }
+
+  static gcal.Event _toGcal(GoogleEventDraft draft) {
+    final start = draft.isAllDay
+        ? gcal.EventDateTime(date: _dateOnly(draft.start))
+        : gcal.EventDateTime(dateTime: draft.start.toUtc());
+    final end = draft.isAllDay
+        ? gcal.EventDateTime(date: _dateOnly(draft.end))
+        : gcal.EventDateTime(dateTime: draft.end.toUtc());
+    return gcal.Event(
+      summary: draft.title,
+      description: draft.description,
+      location: draft.location,
+      start: start,
+      end: end,
+      reminders: draft.reminderMinutes == null
+          ? gcal.EventReminders(useDefault: true)
+          : gcal.EventReminders(
+              useDefault: false,
+              overrides: [
+                gcal.EventReminder(
+                  method: 'popup',
+                  minutes: draft.reminderMinutes,
+                ),
+              ],
+            ),
+    );
   }
 
   static GoogleEventInfo? _toInfo(gcal.Event e, int? defaultReminder) {
@@ -138,7 +253,6 @@ class RestGoogleCalendarApi implements GoogleCalendarApi {
     final start = e.start;
     final end = e.end;
     if (id == null || start == null || end == null) return null;
-    if (e.status == 'cancelled') return null;
 
     final isAllDay = start.date != null;
     final startsAt = isAllDay
@@ -164,6 +278,7 @@ class RestGoogleCalendarApi implements GoogleCalendarApi {
       description: e.description,
       location: e.location,
       reminderMinutes: reminderMinutes,
+      etag: e.etag,
     );
   }
 

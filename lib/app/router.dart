@@ -6,6 +6,8 @@ import '../features/auth/calendar_permission_screen.dart';
 import '../features/auth/connect_google_screen.dart';
 import '../features/calendar/calendar_screen.dart';
 import '../features/categories/presentation/categories_screen.dart';
+import '../features/events/event_details_screen.dart';
+import '../features/events/event_editor_screen.dart';
 import '../features/events/events_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
@@ -49,7 +51,29 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.events,
                 builder: (context, state) => const EventsScreen(),
-                routes: [_route('categories', const CategoriesScreen())],
+                routes: [
+                  _route('categories', const CategoriesScreen()),
+                  GoRoute(
+                    path: 'new',
+                    builder: (context, state) => const EventEditorScreen(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final id = int.parse(state.pathParameters['id']!);
+                      return EventDetailsScreen(eventId: id);
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (context, state) {
+                          final id = int.parse(state.pathParameters['id']!);
+                          return EventEditorScreen(eventId: id);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

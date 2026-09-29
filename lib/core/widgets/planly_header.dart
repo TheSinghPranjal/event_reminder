@@ -7,6 +7,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
 import '../../features/sync/providers/account_providers.dart';
 import 'planly_logo.dart';
+import 'profile_avatar.dart';
 
 /// Top bar shared by the tab screens: badge + title, sync and profile.
 class PlanlyHeader extends ConsumerWidget {
@@ -17,7 +18,6 @@ class PlanlyHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final account = ref.watch(activeAccountProvider).value;
     final isDark = theme.brightness == Brightness.dark;
 
@@ -45,14 +45,9 @@ class PlanlyHeader extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Semantics(
-            label: account == null ? 'Profile' : 'Profile, ${account.email}',
-            child: CircleAvatar(
-              radius: 19,
-              backgroundColor: scheme.primary,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.person_outline_rounded, size: 22),
-            ),
+          ProfileAvatar(
+            account: account,
+            onTap: () => context.go(Routes.settings),
           ),
         ],
       ),

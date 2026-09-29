@@ -43,6 +43,7 @@ class InitialSyncState {
 
   static String pendingLabel(SyncStage s) => switch (s) {
     SyncStage.connect => 'Connecting to Google',
+    SyncStage.pushChanges => 'Uploading local changes',
     SyncStage.loadCalendars => 'Loading calendars',
     SyncStage.importEvents => 'Importing events',
     SyncStage.findBirthdays => 'Finding birthdays',
